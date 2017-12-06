@@ -21,7 +21,7 @@ set -e
 set -u
 
 readonly PROGNAME=$(basename "$0")
-readonly PROGDIR=$(readlink -m "$(dirname \"$0\")")
+readonly PROGDIR=$(readlink "$(dirname \"$0\")")
 readonly ARGS="$*"
 
 function bomb {
