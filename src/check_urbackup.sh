@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 
 ###############################################################################
 # Copyright (C) 2014-2017 Phillip Smith
@@ -44,7 +44,8 @@ function usage {
     '-c secs'         'Critical age in SECONDS for file backups' \
     '-W secs'         'Warning age in SECONDS for image backups' \
     '-C secs'         'Critical age in SECONDS for image backups' \
-    '-X foobar'       'Exclude client "foobar". Can be given multiple times for different clients' \
+    '-X foobar'       'Exclude client "foobar" from both image and file backup checks. Can be given multiple times for different clients' \
+    '-Z foobar'       'Exclude client "foobar" from just file backup checks' \
     '-h'              'Display this help and exit'
 }
 
@@ -66,9 +67,10 @@ function main() {
   declare -i image_critical_age='1209600'  # 14 days
   declare db_fname='/usr/local/var/urbackup/backup_server.db'
   declare -a excluded_clients
+  declare -a excluded_file_clients
 
   ### fetch cmdline options
-  while getopts ":hw:c:W:C:d:X:" opt; do
+  while getopts ":hw:c:W:C:d:X:Z:" opt; do
     case $opt in
       d)
         db_fname="$OPTARG"
@@ -89,6 +91,10 @@ function main() {
         # append to the array so we can exclude multiple clients
         excluded_clients+=("$OPTARG")
         ;;
+      Z)
+       # append to the array so we can exclude multiple clients for files
+       excluded_file_clients+=("$OPTARG")
+       ;;
       h)
         usage
         exit 0
@@ -116,6 +122,8 @@ function main() {
 
   ### turn the excluded_clients array into a string to include in the sql query
   excluded_clients_str=$(printf "  AND name != '%s'\n" "${excluded_clients[@]-}")
+  
+  excluded_file_clients_str=$(printf "  AND name != '%s'\n" "${excluded_file_clients[@]-}")
 
   ### check file backups
   declare -r last_file_backups=$($sqlite3 "
@@ -124,7 +132,8 @@ SELECT  name,
         strftime(\"%s\",CURRENT_TIMESTAMP) - strftime(\"%s\",lastbackup)
 FROM clients
 WHERE 1=1
-$excluded_clients_str;
+$excluded_clients_str
+$excluded_file_clients_str;
 ")
   OLDIFS=$IFS; IFS=$'\n'
   for row in $last_file_backups ; do
